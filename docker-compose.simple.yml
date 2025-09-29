@@ -1,0 +1,39 @@
+services:
+  cake-calculator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cake-calculator-app
+    volumes:
+      - .:/var/www/app
+      - ./examples:/var/www/app/examples
+      - ./output:/var/www/app/output
+    working_dir: /var/www/app
+    networks:
+      - cake-network
+    environment:
+      - COMPOSER_CACHE_DIR=/var/www/app/.composer-cache
+    command: tail -f /dev/null
+
+  cake-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev.simple
+    container_name: cake-calculator-dev-simple
+    volumes:
+      - .:/var/www/app
+      - composer-cache:/var/www/app/.composer-cache
+    working_dir: /var/www/app
+    networks:
+      - cake-network
+    environment:
+      - APP_ENV=development
+    command: tail -f /dev/null
+
+volumes:
+  composer-cache:
+    driver: local
+
+networks:
+  cake-network:
+    driver: bridge

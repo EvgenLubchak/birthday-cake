@@ -1,0 +1,16 @@
+# Override file for local development
+services:
+  cake-calculator:
+    volumes:
+      - .:/var/www/app:cached
+      - ./vendor:/var/www/app/vendor
+      - ./composer.lock:/var/www/app/composer.lock
+    environment:
+      - APP_ENV=development
+      - XDEBUG_MODE=debug
+
+  cake-dev:
+    volumes:
+      - .:/var/www/app:cached
+      - ./vendor:/var/www/app/vendor
+      - ./composer.lock:/var/www/app/composer.lock

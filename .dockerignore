@@ -1,0 +1,17 @@
+.git
+.idea
+.vscode
+.DS_Store
+.env
+.env.*
+node_modules
+vendor
+coverage
+.composer-cache
+output
+*.log
+Dockerfile*
+docker-compose*
+README.md
+.gitignore
+.dockerignore

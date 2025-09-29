@@ -1,0 +1,39 @@
+FROM php:8.2-cli-alpine
+
+# Install system dependencies and PHP extensions
+RUN apk add --no-cache \
+    git \
+    unzip \
+    zip \
+    curl \
+    bash \
+    make \
+    && docker-php-ext-install \
+    pcntl
+
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Create application directory
+WORKDIR /var/www/app
+
+# Copy composer files first for better caching
+COPY composer.json ./
+
+# Install PHP dependencies (including dev dependencies)
+RUN composer install --optimize-autoloader --no-interaction --ignore-platform-reqs || \
+    (composer update --ignore-platform-reqs && composer install --optimize-autoloader --no-interaction --ignore-platform-reqs)
+
+# Copy application files
+COPY . .
+
+# Make the binary executable
+RUN chmod +x bin/cake-calculator
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN chown -R appuser:appgroup /var/www/app
+USER appuser
+
+# Default command
+CMD ["tail", "-f", "/dev/null"]

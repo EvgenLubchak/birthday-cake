@@ -1,0 +1,31 @@
+# Dependencies
+/vendor/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Application files
+/output/*
+!/output/.gitkeep
+
+# Test and coverage
+/coverage/
+/.phpunit.cache
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Cache
+/.composer-cache/
