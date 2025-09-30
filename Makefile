@@ -90,3 +90,13 @@ setup: build up install ## Complete setup for new developers
 	@echo "  make shell       - Access development container"
 	@echo "  make help        - Show all available commands"
 	@echo "$(NC)"
+
+generateTestData:
+	@echo "$(YELLOW)Start generating test data file...$(NC)"
+	docker compose exec -T cake-dev php bin/generate-test-data examples/example.txt --count=50
+	@echo "$(GREEN)Data file generated!$(NC)"
+
+processTestData:
+	@echo "$(YELLOW)Start processing file...$(NC)"
+	docker compose exec -T cake-dev php bin/cake-calculator examples/example.txt output/example-output.csv
+	@echo "$(GREEN)Success!$(NC)"

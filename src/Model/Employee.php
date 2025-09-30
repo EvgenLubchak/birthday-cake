@@ -17,11 +17,18 @@ final readonly class Employee
     ) {}
 
     /**
-     * Get employee's birthday for a specific year
+     * Get employee's birthday for a specific year (memory optimized)
      */
     public function getBirthdayForYear(int $year): Carbon
     {
-        return $this->dateOfBirth->copy()->year($year);
+        // Create new Carbon instance instead of copying to reduce memory footprint
+        return Carbon::create(
+            $year, 
+            $this->dateOfBirth->month, 
+            $this->dateOfBirth->day,
+            0, 0, 0,
+            $this->dateOfBirth->timezone
+        );
     }
 
     /**

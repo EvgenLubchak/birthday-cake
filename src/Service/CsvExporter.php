@@ -7,7 +7,7 @@ namespace App\Service;
 use App\Model\CakeDay;
 
 /**
- * Service for exporting cake days to CSV format
+ * Service for exporting cake days to CSV format with streaming support
  */
 final class CsvExporter
 {
@@ -19,21 +19,78 @@ final class CsvExporter
     ];
 
     /**
-     * Export cake days to CSV file
+     * Export cake days to CSV file using streaming (memory efficient)
      * 
      * @param CakeDay[] $cakeDays
      */
     public function exportToFile(array $cakeDays, string $filePath): void
     {
-        $csvContent = $this->generateCsvContent($cakeDays);
+        $this->exportToFileStream($cakeDays, $filePath);
+    }
 
-        if (file_put_contents($filePath, $csvContent) === false) {
-            throw new \RuntimeException("Could not write to file: {$filePath}");
+    /**
+     * Stream export for large datasets
+     * 
+     * @param CakeDay[] $cakeDays
+     */
+    public function exportToFileStream(array $cakeDays, string $filePath): void
+    {
+        $handle = fopen($filePath, 'w');
+        if ($handle === false) {
+            throw new \RuntimeException("Could not create file: {$filePath}");
+        }
+
+        try {
+            // Write headers
+            fputcsv($handle, self::CSV_HEADERS);
+
+            // Stream write data
+            foreach ($cakeDays as $cakeDay) {
+                fputcsv($handle, $cakeDay->toCsvRow());
+            }
+        } finally {
+            fclose($handle);
         }
     }
 
     /**
-     * Generate CSV content as string
+     * Export with progress callback for monitoring
+     * 
+     * @param CakeDay[] $cakeDays
+     */
+    public function exportWithProgress(array $cakeDays, string $filePath, ?callable $progressCallback = null): void
+    {
+        $handle = fopen($filePath, 'w');
+        if ($handle === false) {
+            throw new \RuntimeException("Could not create file: {$filePath}");
+        }
+
+        $total = count($cakeDays);
+        $processed = 0;
+
+        try {
+            fputcsv($handle, self::CSV_HEADERS);
+
+            foreach ($cakeDays as $cakeDay) {
+                fputcsv($handle, $cakeDay->toCsvRow());
+                $processed++;
+
+                if ($progressCallback && $processed % 100 === 0) {
+                    $progressCallback($processed, $total);
+                }
+            }
+
+            // Final callback for completion
+            if ($progressCallback && $processed > 0) {
+                $progressCallback($processed, $total);
+            }
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /**
+     * Generate CSV content as string (legacy method for small datasets)
      * 
      * @param CakeDay[] $cakeDays
      */
