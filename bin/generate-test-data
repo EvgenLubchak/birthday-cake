@@ -1,0 +1,198 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Find autoloader
+$autoloadFiles = [
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../../autoload.php',
+];
+
+$autoloaderFound = false;
+foreach ($autoloadFiles as $autoloadFile) {
+    if (file_exists($autoloadFile)) {
+        require_once $autoloadFile;
+        $autoloaderFound = true;
+        break;
+    }
+}
+
+if (!$autoloaderFound) {
+    fwrite(STDERR, "Error: Composer autoloader not found. Please run 'composer install'.\n");
+    exit(1);
+}
+
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
+
+class GenerateTestDataCommand extends Command
+{
+    private const FIRST_NAMES = [
+        'Alex', 'Bob', 'Carol', 'Dave', 'Emma', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack',
+        'Kate', 'Liam', 'Mary', 'Nick', 'Olivia', 'Peter', 'Quinn', 'Rachel', 'Steve', 'Tara',
+        'Ursula', 'Victor', 'Wendy', 'Xavier', 'Yara', 'Zoe', 'Anna', 'Ben', 'Claire', 'Daniel',
+        'Elena', 'Felix', 'Gina', 'Hugo', 'Iris', 'James', 'Kelly', 'Lucas', 'Maya', 'Noah',
+        'Oscar', 'Paula', 'Quincy', 'Rita', 'Sam', 'Tom', 'Una', 'Vera', 'Will', 'Zara'
+    ];
+
+    private const LAST_NAMES = [
+        'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez',
+        'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin',
+        'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson',
+        'Walker', 'Young', 'Allen', 'King', 'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores',
+        'Green', 'Adams', 'Nelson', 'Baker', 'Hall', 'Rivera', 'Campbell', 'Mitchell', 'Carter', 'Roberts'
+    ];
+
+    protected static $defaultName = 'generate-test-data';
+    protected static $defaultDescription = 'Generate large test file with employee data';
+
+    protected function configure(): void
+    {
+        $this
+            ->addArgument(
+                'output-file',
+                InputArgument::REQUIRED,
+                'Path to the output file'
+            )
+            ->addOption(
+                'count',
+                'c',
+                InputOption::VALUE_OPTIONAL,
+                'Number of employees to generate',
+                '50000'
+            )
+            ->setHelp(
+                'This command generates a large file with employee data for testing performance.' . PHP_EOL .
+                'Output format: [Person Name],[Date of Birth (yyyy-mm-dd)]' . PHP_EOL .
+                'Example: php bin/generate-test-data examples/large_employees.txt --count=100000'
+            );
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $io = new SymfonyStyle($input, $output);
+
+        try {
+            $outputFile = $input->getArgument('output-file');
+            $count = (int) $input->getOption('count');
+
+            $io->title('Test Data Generator');
+            $io->text([
+                'Generating employee data...',
+                "File: {$outputFile}",
+                "Count: " . number_format($count) . " employees",
+                "Estimated file size: ~" . round($count * 25 / 1024 / 1024, 2) . " MB"
+            ]);
+
+            // Create output directory if needed
+            $outputDir = dirname($outputFile);
+            if (!is_dir($outputDir)) {
+                mkdir($outputDir, 0755, true);
+            }
+
+            $handle = fopen($outputFile, 'w');
+            if ($handle === false) {
+                throw new \RuntimeException("Cannot create file: {$outputFile}");
+            }
+
+            // Write header
+            fwrite($handle, "# Generated test data with " . number_format($count) . " employees\n");
+            fwrite($handle, "# Format: [Person Name],[Date of Birth (yyyy-mm-dd)]\n");
+            fwrite($handle, "# Generated at: " . date('Y-m-d H:i:s') . "\n\n");
+
+            $progressBar = $io->createProgressBar($count);
+            $progressBar->setFormat('verbose');
+            $progressBar->start();
+
+            $usedNames = [];
+
+            for ($i = 0; $i < $count; $i++) {
+                // Generate unique name
+                do {
+                    $firstName = self::FIRST_NAMES[array_rand(self::FIRST_NAMES)];
+                    $lastName = self::LAST_NAMES[array_rand(self::LAST_NAMES)];
+                    $fullName = "{$firstName} {$lastName}";
+
+                    // Add number suffix if name already exists
+                    if (isset($usedNames[$fullName])) {
+                        $usedNames[$fullName]++;
+                        $fullName = "{$firstName} {$lastName} {$usedNames[$fullName]}";
+                    } else {
+                        $usedNames[$fullName] = 1;
+                    }
+                } while (isset($usedNames[$fullName]) && $usedNames[$fullName] > 1);
+
+                // Generate random birth date (between 1950 and 2000)
+                $year = mt_rand(1950, 2000);
+                $month = mt_rand(1, 12);
+                $day = mt_rand(1, 28); // Safe day range for all months
+
+                $birthDate = sprintf('%04d-%02d-%02d', $year, $month, $day);
+
+                fwrite($handle, "{$fullName},{$birthDate}\n");
+
+                $progressBar->advance();
+
+                // Flush periodically for large files
+                if ($i % 10000 === 0) {
+                    fflush($handle);
+                }
+            }
+
+            $progressBar->finish();
+            fclose($handle);
+
+            $io->newLine(2);
+
+            // Get actual file size
+            $fileSize = filesize($outputFile);
+            $fileSizeMB = round($fileSize / 1024 / 1024, 2);
+
+            $io->success([
+                "Generated {$count} employees successfully!",
+                "File: {$outputFile}",
+                "Size: {$fileSizeMB} MB"
+            ]);
+
+            $io->section('Sample data:');
+            $sampleHandle = fopen($outputFile, 'r');
+            $lineCount = 0;
+            while (($line = fgets($sampleHandle)) !== false && $lineCount < 10) {
+                if (!str_starts_with($line, '#') && !empty(trim($line))) {
+                    $io->text('• ' . trim($line));
+                    $lineCount++;
+                }
+            }
+            fclose($sampleHandle);
+
+            $io->note([
+                'Test the generated file with:',
+                "php bin/cake-calculator \"{$outputFile}\" some-output.csv"
+            ]);
+
+            return Command::SUCCESS;
+
+        } catch (\Exception $e) {
+            $io->error('Error: ' . $e->getMessage());
+
+            if ($io->isVeryVerbose()) {
+                $io->section('Stack trace:');
+                $io->text($e->getTraceAsString());
+            }
+
+            return Command::FAILURE;
+        }
+    }
+}
+
+// Create and run application
+$application = new Application('Test Data Generator', '1.0.0');
+$application->add(new GenerateTestDataCommand());
+$application->setDefaultCommand('generate-test-data', true);
+$application->run();
