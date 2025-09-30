@@ -93,7 +93,7 @@ setup: build up install ## Complete setup for new developers
 
 generateTestData:
 	@echo "$(YELLOW)Start generating test data file...$(NC)"
-	docker compose exec -T cake-dev php bin/generate-test-data examples/example.txt --count=50
+	docker compose exec -T cake-dev php bin/generate-test-data examples/example.txt --count=777
 	@echo "$(GREEN)Data file generated!$(NC)"
 
 processTestData:

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\Model\Employee;
-use App\Model\CakeDay;
+use App\Model\SimpleCakeDay;
 use Carbon\Carbon;
 
 /**
@@ -23,7 +23,7 @@ final class CakeDayCalculator
      * Calculate all cake days for employees in a given year (memory optimized)
      * 
      * @param Employee[] $employees
-     * @return CakeDay[]
+     * @return SimpleCakeDay[]
      */
     public function calculateCakeDays(array $employees, int $year): array
     {
@@ -48,6 +48,7 @@ final class CakeDayCalculator
 
         // Step 1: Calculate cake dates directly into groups with memory cleanup
         foreach ($employees as $index => $employee) {
+
             $birthday = $employee->getBirthdayForYear($year);
 
             $dayOff = $this->holidayService->isWorkingDay($birthday) 
@@ -85,7 +86,7 @@ final class CakeDayCalculator
         gc_collect_cycles();
 
         // Step 6: Sort only once at the end
-        usort($cakeDays, static fn(CakeDay $a, CakeDay $b) => $a->date <=> $b->date);
+        usort($cakeDays, static fn(SimpleCakeDay $a, SimpleCakeDay $b) => $a->timestamp <=> $b->timestamp);
 
         return $cakeDays;
     }
@@ -97,15 +98,18 @@ final class CakeDayCalculator
     {
         $cakeDays = [];
 
-        // Convert to cake days with consolidation
+        // Convert to simple cake days with consolidation
         foreach ($dateGroups as $data) {
             $employeeCount = count($data['employees']);
 
-            $cakeDays[] = new CakeDay(
-                $data['date'],
+            // Extract employee names only
+            $employeeNames = array_map(fn($emp) => $emp->name, $data['employees']);
+
+            $cakeDays[] = new SimpleCakeDay(
+                $data['date']->getTimestamp(),
                 $employeeCount >= 2 ? 0 : 1,  // small cakes
                 $employeeCount >= 2 ? 1 : 0,  // large cakes
-                $data['employees']
+                $employeeNames
             );
         }
 
@@ -141,35 +145,32 @@ final class CakeDayCalculator
      */
     private function consolidateBatchResults(array $allCakeDays): array
     {
-        // Group cake days from different batches by date
+        // Group cake days from different batches by timestamp
         $consolidated = [];
         $dateGroups = [];
 
         foreach ($allCakeDays as $cakeDay) {
-            $dateKey = $cakeDay->date->getTimestamp();
+            $dateKey = $cakeDay->timestamp;
 
             if (!isset($dateGroups[$dateKey])) {
-                $dateGroups[$dateKey] = [
-                    'date' => $cakeDay->date,
-                    'employees' => []
-                ];
+                $dateGroups[$dateKey] = [];
             }
 
-            $dateGroups[$dateKey]['employees'] = array_merge(
-                $dateGroups[$dateKey]['employees'], 
-                $cakeDay->employees
+            $dateGroups[$dateKey] = array_merge(
+                $dateGroups[$dateKey], 
+                $cakeDay->employeeNames
             );
         }
 
-        // Recreate cake days with proper consolidation
-        foreach ($dateGroups as $data) {
-            $employeeCount = count($data['employees']);
+        // Recreate simple cake days with proper consolidation
+        foreach ($dateGroups as $timestamp => $employeeNames) {
+            $employeeCount = count($employeeNames);
 
-            $consolidated[] = new CakeDay(
-                $data['date'],
+            $consolidated[] = new SimpleCakeDay(
+                $timestamp,
                 $employeeCount >= 2 ? 0 : 1,
                 $employeeCount >= 2 ? 1 : 0,
-                $data['employees']
+                $employeeNames
             );
         }
 
@@ -177,7 +178,7 @@ final class CakeDayCalculator
         $consolidated = $this->applyConsecutiveRulesOptimized($consolidated);
         $consolidated = $this->applyCakeFreeDayRulesOptimized($consolidated);
 
-        usort($consolidated, static fn(CakeDay $a, CakeDay $b) => $a->date <=> $b->date);
+        usort($consolidated, static fn(SimpleCakeDay $a, SimpleCakeDay $b) => $a->timestamp <=> $b->timestamp);
 
         return $consolidated;
     }
@@ -191,8 +192,8 @@ final class CakeDayCalculator
             return $cakeDays;
         }
 
-        // Sort by date first
-        usort($cakeDays, static fn(CakeDay $a, CakeDay $b) => $a->date <=> $b->date);
+        // Sort by timestamp first
+        usort($cakeDays, static fn(SimpleCakeDay $a, SimpleCakeDay $b) => $a->timestamp <=> $b->timestamp);
 
         $adjusted = [];
         $i = 0;
@@ -204,15 +205,15 @@ final class CakeDayCalculator
             if ($i + 1 < count($cakeDays)) {
                 $next = $cakeDays[$i + 1];
 
-                if ($this->areConsecutiveWorkingDays($current->date, $next->date)) {
+                if ($this->areConsecutiveWorkingDays($current->timestamp, $next->timestamp)) {
                     // Combine into large cake on second day
-                    $combinedEmployees = array_merge($current->employees, $next->employees);
+                    $combinedEmployeeNames = array_merge($current->employeeNames, $next->employeeNames);
 
-                    $adjusted[] = new CakeDay(
-                        $next->date,
+                    $adjusted[] = new SimpleCakeDay(
+                        $next->timestamp,
                         0, // small cakes
                         1, // large cakes
-                        $combinedEmployees
+                        $combinedEmployeeNames
                     );
 
                     $i += 2; // Skip both days
@@ -237,38 +238,41 @@ final class CakeDayCalculator
             return $cakeDays;
         }
 
-        // Sort by date
-        usort($cakeDays, static fn(CakeDay $a, CakeDay $b) => $a->date <=> $b->date);
+        // Sort by timestamp
+        usort($cakeDays, static fn(SimpleCakeDay $a, SimpleCakeDay $b) => $a->timestamp <=> $b->timestamp);
 
         $adjusted = [];
-        $lastCakeDate = null;
+        $lastCakeTimestamp = null;
 
         foreach ($cakeDays as $cakeDay) {
-            if ($lastCakeDate === null) {
+            if ($lastCakeTimestamp === null) {
                 // First cake day
                 $adjusted[] = $cakeDay;
-                $lastCakeDate = $cakeDay->date;
+                $lastCakeTimestamp = $cakeDay->timestamp;
                 continue;
             }
 
+            $lastCakeDate = Carbon::createFromTimestamp($lastCakeTimestamp);
             $nextWorkingDayAfterLast = $this->holidayService->getNextWorkingDay($lastCakeDate);
 
-            if ($cakeDay->date->equalTo($nextWorkingDayAfterLast)) {
-                // This cake falls on cake-free day, postpone it
-                $postponedDate = $this->holidayService->getNextWorkingDay($cakeDay->date);
+            $cakeDayDate = Carbon::createFromTimestamp($cakeDay->timestamp);
 
-                $adjusted[] = new CakeDay(
-                    $postponedDate,
+            if ($cakeDayDate->equalTo($nextWorkingDayAfterLast)) {
+                // This cake falls on cake-free day, postpone it
+                $postponedDate = $this->holidayService->getNextWorkingDay($cakeDayDate);
+
+                $adjusted[] = new SimpleCakeDay(
+                    $postponedDate->getTimestamp(),
                     $cakeDay->smallCakes,
                     $cakeDay->largeCakes,
-                    $cakeDay->employees
+                    $cakeDay->employeeNames
                 );
 
-                $lastCakeDate = $postponedDate;
+                $lastCakeTimestamp = $postponedDate->getTimestamp();
             } else {
                 // This cake is fine
                 $adjusted[] = $cakeDay;
-                $lastCakeDate = $cakeDay->date;
+                $lastCakeTimestamp = $cakeDay->timestamp;
             }
         }
 
@@ -276,10 +280,13 @@ final class CakeDayCalculator
     }
 
     /**
-     * Check if two dates are consecutive working days
+     * Check if two timestamps are consecutive working days
      */
-    private function areConsecutiveWorkingDays(Carbon $date1, Carbon $date2): bool
+    private function areConsecutiveWorkingDays(int $timestamp1, int $timestamp2): bool
     {
+        $date1 = Carbon::createFromTimestamp($timestamp1);
+        $date2 = Carbon::createFromTimestamp($timestamp2);
+
         return $this->holidayService->getNextWorkingDay($date1)->equalTo($date2);
     }
 }

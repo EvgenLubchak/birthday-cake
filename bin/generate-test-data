@@ -173,7 +173,7 @@ class GenerateTestDataCommand extends Command
 
             $io->note([
                 'Test the generated file with:',
-                "php bin/cake-calculator \"{$outputFile}\" some-output.csv"
+                "php bin/cake-calculator {$outputFile} example-output.csv"
             ]);
 
             return Command::SUCCESS;

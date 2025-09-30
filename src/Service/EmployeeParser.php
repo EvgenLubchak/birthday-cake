@@ -88,48 +88,4 @@ final class EmployeeParser
             yield $batch;
         }
     }
-
-    /**
-     * Count total employees in file without loading all into memory
-     * 
-     * @throws \InvalidArgumentException
-     */
-    public function countEmployeesInFile(string $filePath): int
-    {
-        $count = 0;
-        foreach ($this->parseFromFileStream($filePath) as $employee) {
-            $count++;
-        }
-        return $count;
-    }
-
-    /**
-     * Parse employees from string content (legacy method for testing)
-     * 
-     * @return Employee[]
-     */
-    public function parseFromString(string $content): array
-    {
-        $lines = array_filter(
-            array_map('trim', explode("\n", $content)),
-            fn(string $line) => !empty($line) && !str_starts_with($line, '#')
-        );
-
-        if (empty($lines)) {
-            throw new \InvalidArgumentException("No valid employee data found");
-        }
-
-        $employees = [];
-        foreach ($lines as $lineNumber => $line) {
-            try {
-                $employees[] = Employee::fromCsvLine($line);
-            } catch (\InvalidArgumentException $e) {
-                throw new \InvalidArgumentException(
-                    "Error on line " . ($lineNumber + 1) . ": " . $e->getMessage()
-                );
-            }
-        }
-
-        return $employees;
-    }
 }

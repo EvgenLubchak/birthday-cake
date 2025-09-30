@@ -58,23 +58,4 @@ final class HolidayService
 
         return $nextDay;
     }
-
-    /**
-     * Get all working days in a year
-     */
-    public function getWorkingDaysInYear(int $year): array
-    {
-        $workingDays = [];
-        $date = Carbon::create($year, 1, 1);
-        $endDate = Carbon::create($year, 12, 31);
-
-        while ($date->lte($endDate)) {
-            if ($this->isWorkingDay($date)) {
-                $workingDays[] = $date->copy();
-            }
-            $date->addDay();
-        }
-
-        return $workingDays;
-    }
 }
