@@ -75,10 +75,26 @@ test-coverage: ## Run tests with coverage report
 
 generate_test_data:
 	@echo "$(YELLOW)Start generating test data file...$(NC)"
-	docker compose exec -T cake-dev php bin/generate-test-data examples/example.txt --count=900
+	docker compose exec cake-dev php bin/generate-test-data examples/example.txt --count=700
 	@echo "$(GREEN)Data file generated!$(NC)"
 
 process_test_data:
 	@echo "$(YELLOW)Start processing file...$(NC)"
-	docker compose exec -T cake-dev php bin/cake-calculator examples/example.txt output/example-output.csv
+	docker compose exec cake-dev php bin/cake-calculator examples/example.txt output/example-output.csv
+	@echo "$(GREEN)Success!$(NC)"
+
+# Plain mode without ANSI (recommended for IDE consoles)
+generate_test_data_plain:
+	@echo "$(YELLOW)Start processing file (plain output)...$(NC)"
+	docker compose exec \
+	  -e TERM=dumb -e NO_COLOR=1 \
+	  cake-dev php bin/generate-test-data examples/example.txt --count=700
+	@echo "$(GREEN)Success!$(NC)"
+
+# Plain mode without ANSI (recommended for IDE consoles)
+process_test_data_plain:
+	@echo "$(YELLOW)Start processing file (plain output)...$(NC)"
+	docker compose exec \
+	  -e TERM=dumb -e NO_COLOR=1 \
+	  cake-dev php bin/cake-calculator --no-ansi examples/example.txt output/example-output.csv
 	@echo "$(GREEN)Success!$(NC)"
