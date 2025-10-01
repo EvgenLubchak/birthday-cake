@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Dto\ProcessingResult;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
@@ -42,19 +43,16 @@ final class CommandOutputService
     /**
      * Display processing summary
      */
-    public function displaySummary(array $cakeDays, float $fileSizeMB, SymfonyStyle $io): void
+    public function displaySummary(ProcessingResult $processingResult, float $fileSizeMB, SymfonyStyle $io): void
     {
-        $totalSmallCakes = array_sum(array_map(fn($cd) => $cd->smallCakes, $cakeDays));
-        $totalLargeCakes = array_sum(array_map(fn($cd) => $cd->largeCakes, $cakeDays));
-
         $io->section('Summary:');
         $io->definitionList(
             ['Input file size' => $fileSizeMB . ' MB'],
-            ['Total cake days' => number_format(count($cakeDays))],
-            ['Small cakes' => number_format($totalSmallCakes)],
-            ['Large cakes' => number_format($totalLargeCakes)],
-            ['Memory usage' => round(memory_get_peak_usage(true) / 1024 / 1024, 2) . ' MB'],
-            ['Processing time' => sprintf('%.2f seconds', microtime(true) - $_SERVER['REQUEST_TIME_FLOAT'])]
+            ['Total cake days' => number_format($processingResult->getTotalCakeDays())],
+            ['Small cakes' => number_format($processingResult->totalSmallCakes)],
+            ['Large cakes' => number_format($processingResult->totalLargeCakes)],
+            ['Memory usage' => $processingResult->getMemoryUsageMB() . ' MB'],
+            ['Processing time' => $processingResult->getFormattedProcessingTime()]
         );
     }
 

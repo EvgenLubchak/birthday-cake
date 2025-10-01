@@ -98,8 +98,8 @@ final class CakeCalculatorCommand extends Command
             // Export results
             $this->outputService->exportWithProgress($this->csvExporter, $processingResult->cakeDays, $outputFile, $io);
 
-            // Display summary (using array from DTO and file size)
-            $this->outputService->displaySummary($processingResult->cakeDays, $fileInfo->getSizeMB(), $io);
+            // Display summary (using DTO-provided metrics)
+            $this->outputService->displaySummary($processingResult, $fileInfo->getSizeMB(), $io);
 
             return Command::SUCCESS;
 
