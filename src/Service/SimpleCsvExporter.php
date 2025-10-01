@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Interface\CsvExporterInterface;
 use App\Model\SimpleCakeDay;
 
 /**
  * CSV exporter optimized for SimpleCakeDay objects (no Carbon overhead)
  */
-final class SimpleCsvExporter
+final class SimpleCsvExporter implements CsvExporterInterface
 {
     private const CSV_HEADERS = ['Date', 'Small Cakes', 'Large Cakes', 'Employees'];
 

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Dto\ProcessingResult;
+use App\Interface\CakeDayCalculatorInterface;
+use App\Interface\EmployeeParserInterface;
+use App\Interface\TempFileManagerInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
@@ -12,16 +16,17 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class BatchProcessor
 {
     public function __construct(
-        private readonly EmployeeParser $employeeParser = new EmployeeParser(),
-        private readonly CakeDayCalculator $cakeDayCalculator = new CakeDayCalculator(new HolidayService()),
-        private readonly TempFileManager $tempFileManager = new TempFileManager()
+        private readonly EmployeeParserInterface $employeeParser = new EmployeeParser(),
+        private readonly CakeDayCalculatorInterface $cakeDayCalculator = new CakeDayCalculator(new HolidayService()),
+        private readonly TempFileManagerInterface $tempFileManager = new TempFileManager()
     ) {}
 
     /**
      * Process employees in batches with progress tracking
      */
-    public function processInBatches(string $inputFile, int $year, SymfonyStyle $io): array
+    public function processInBatches(string $inputFile, int $year, SymfonyStyle $io): ProcessingResult
     {
+        $startTime = microtime(true);
         $tempFile = $this->tempFileManager->create('cake_days_');
         $progressBar = $this->createProgressBar($io);
 
@@ -68,13 +73,27 @@ final class BatchProcessor
         // Clean up temp file
         $this->tempFileManager->cleanup($tempFile);
 
-        return $finalResults;
+        // Compute totals
+        $totalSmallCakes = array_sum(array_map(static fn($cd) => $cd->smallCakes, $finalResults));
+        $totalLargeCakes = array_sum(array_map(static fn($cd) => $cd->largeCakes, $finalResults));
+
+        $processingTimeSeconds = microtime(true) - $startTime;
+        $memoryUsageBytes = memory_get_peak_usage(true);
+
+        return new ProcessingResult(
+            cakeDays: $finalResults,
+            totalEmployeesProcessed: $totalCount,
+            processingTimeSeconds: $processingTimeSeconds,
+            memoryUsageBytes: $memoryUsageBytes,
+            totalSmallCakes: $totalSmallCakes,
+            totalLargeCakes: $totalLargeCakes
+        );
     }
 
     /**
      * Create progress bar for batch processing
      */
-    private function createProgressBar(SymfonyStyle $io): \Symfony\Component\Console\Helper\ProgressBar
+    private function createProgressBar(SymfonyStyle $io)
     {
         $progressBar = $io->createProgressBar();
         $progressBar->setFormat(' %current% employees processed [%bar%] %elapsed%');

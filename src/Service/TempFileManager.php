@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Interface\TempFileManagerInterface;
 use App\Model\SimpleCakeDay;
 
 /**
  * Service for managing temporary files during batch processing
  */
-final class TempFileManager
+final class TempFileManager implements TempFileManagerInterface
 {
     public function create(string $prefix): string
     {

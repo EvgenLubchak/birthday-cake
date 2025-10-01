@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Interface\CakeDayCalculatorInterface;
 use App\Model\Employee;
 use App\Model\SimpleCakeDay;
 use Carbon\Carbon;
@@ -11,7 +12,7 @@ use Carbon\Carbon;
 /**
  * Service for calculating cake days with memory optimization
  */
-final class CakeDayCalculator
+final class CakeDayCalculator implements CakeDayCalculatorInterface
 {
     private const MAX_EMPLOYEES_IN_MEMORY = 2000;
 

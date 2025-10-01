@@ -50,6 +50,17 @@ final readonly class Employee
 
         try {
             $dateOfBirth = Carbon::createFromFormat('Y-m-d', $dateStr);
+
+            // Check if Carbon parsing failed
+            if ($dateOfBirth === false) {
+                throw new \InvalidArgumentException("Invalid date format: {$dateStr}. Expected Y-m-d format.");
+            }
+
+            // Additional validation to ensure the parsed date matches input
+            if ($dateOfBirth->format('Y-m-d') !== $dateStr) {
+                throw new \InvalidArgumentException("Invalid date format: {$dateStr}. Expected Y-m-d format.");
+            }
+
         } catch (\Exception $e) {
             throw new \InvalidArgumentException("Invalid date format: {$dateStr}. Expected Y-m-d format.");
         }

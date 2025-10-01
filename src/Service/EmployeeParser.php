@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Interface\EmployeeParserInterface;
 use App\Model\Employee;
 
 /**
  * Service for parsing employee data from files with streaming support
  */
-final class EmployeeParser
+final class EmployeeParser implements EmployeeParserInterface
 {
     private const MAX_LINE_LENGTH = 1024;
     private const DEFAULT_BATCH_SIZE = 1000;

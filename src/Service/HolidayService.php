@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Interface\HolidayServiceInterface;
 use Carbon\Carbon;
 
 /**
  * Service for managing holidays and working days
  */
-final class HolidayService
+final class HolidayService implements HolidayServiceInterface
 {
     /**
      * Fixed holidays (month-day)

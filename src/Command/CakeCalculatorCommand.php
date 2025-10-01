@@ -6,6 +6,7 @@ namespace App\Command;
 
 use App\Service\BatchProcessor;
 use App\Service\CommandOutputService;
+use App\Service\FileService;
 use App\Service\SimpleCsvExporter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -25,7 +26,8 @@ final class CakeCalculatorCommand extends Command
     public function __construct(
         private readonly BatchProcessor $batchProcessor = new BatchProcessor(),
         private readonly SimpleCsvExporter $csvExporter = new SimpleCsvExporter(),
-        private readonly CommandOutputService $outputService = new CommandOutputService()
+        private readonly CommandOutputService $outputService = new CommandOutputService(),
+        private readonly FileService $fileService = new FileService()
     ) {
         parent::__construct();
     }
@@ -67,35 +69,37 @@ final class CakeCalculatorCommand extends Command
             $outputFile = $input->getArgument('output-file');
             $year = (int) $input->getOption('year');
 
-            $io->title('Cake Day Calculator (Optimized for Large Files)');
+            $io->title('Cake Day Calculator (Optimized for Large Files with Streaming Support)');
 
-            // Get file info
-            $fileSize = filesize($inputFile);
-            $fileSizeMB = round($fileSize / 1024 / 1024, 2);
-            $io->text(sprintf('Input file size: %s MB', $fileSizeMB));
+            // Validate input file using FileService
+            $fileInfo = $this->fileService->validateInputFile($inputFile);
+            $io->text(sprintf('Input file size: %.2f MB', $fileInfo->getSizeMB()));
+
+            // Ensure output directory exists
+            $this->fileService->ensureOutputDirectory($outputFile);
 
             $io->section('Processing employee data with streaming...');
             $io->text(sprintf('Processing employees and calculating cake days for year %d...', $year));
             $io->newLine();
 
-            // Process data using BatchProcessor
-            $cakeDays = $this->batchProcessor->processInBatches($inputFile, $year, $io);
+            // Process data using BatchProcessor - returns ProcessingResult DTO
+            $processingResult = $this->batchProcessor->processInBatches($inputFile, $year, $io);
 
-            if (empty($cakeDays)) {
+            if ($processingResult->getTotalCakeDays() === 0) {
                 $io->warning('No cake days calculated for the given year.');
                 return Command::SUCCESS;
             }
 
-            $io->success(sprintf('Calculated %d cake days', count($cakeDays)));
+            $io->success(sprintf('Calculated %d cake days', $processingResult->getTotalCakeDays()));
 
-            // Display results using OutputService
-            $this->outputService->displayResults($cakeDays, $io);
+            // Display results
+            $this->outputService->displayResults($processingResult->cakeDays, $io);
 
-            // Export using OutputService
-            $this->outputService->exportWithProgress($this->csvExporter, $cakeDays, $outputFile, $io);
+            // Export results
+            $this->outputService->exportWithProgress($this->csvExporter, $processingResult->cakeDays, $outputFile, $io);
 
-            // Display summary using OutputService
-            $this->outputService->displaySummary($cakeDays, $fileSizeMB, $io);
+            // Display summary (using array from DTO and file size)
+            $this->outputService->displaySummary($processingResult->cakeDays, $fileInfo->getSizeMB(), $io);
 
             return Command::SUCCESS;
 

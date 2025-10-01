@@ -1,4 +1,4 @@
-.PHONY: help build up down shell install test lint clean example
+.PHONY: help build up down shell install test clean example
 
 # Colors for output
 RED=\033[0;31m
@@ -30,10 +30,6 @@ shell: ## Access the development container shell
 	@echo "$(YELLOW)Accessing development container...$(NC)"
 	docker compose exec cake-dev sh
 
-shell-app: ## Access the app container shell
-	@echo "$(YELLOW)Accessing app container...$(NC)"
-	docker compose exec cake-dev sh
-
 install: ## Install PHP dependencies
 	@echo "$(YELLOW)Installing dependencies...$(NC)"
 	docker compose exec cake-dev composer install
@@ -43,31 +39,6 @@ update: ## Update PHP dependencies
 	@echo "$(YELLOW)Updating dependencies...$(NC)"
 	docker compose exec cake-dev composer update
 	@echo "$(GREEN)Dependencies updated!$(NC)"
-
-test: ## Run PHPUnit tests
-	@echo "$(YELLOW)Running tests...$(NC)"
-	docker compose exec cake-dev composer test
-	@echo "$(GREEN)Tests completed!$(NC)"
-
-test-coverage: ## Run tests with coverage report
-	@echo "$(YELLOW)Running tests with coverage...$(NC)"
-	docker compose exec cake-dev ./vendor/bin/phpunit --coverage-html coverage
-	@echo "$(GREEN)Coverage report generated in ./coverage/$(NC)"
-
-lint: ## Run code quality checks
-	@echo "$(YELLOW)Running code quality checks...$(NC)"
-	docker compose exec cake-dev composer psalm
-	docker compose exec cake-dev composer phpstan
-	@echo "$(GREEN)Code quality checks completed!$(NC)"
-
-example: ## Run example calculation
-	@echo "$(YELLOW)Running example calculation...$(NC)"
-	docker compose exec cake-dev php bin/cake-calculator examples/employees.txt output/results.csv --year=2025 -v
-	@echo "$(GREEN)Example completed! Check output/results.csv$(NC)"
-
-interactive: ## Run calculator interactively
-	@echo "$(YELLOW)Running calculator interactively...$(NC)"
-	docker compose exec -it cake-dev php bin/cake-calculator examples/employees.txt output/interactive-results.csv --year=2025 -vv
 
 clean: ## Clean up Docker containers and volumes
 	@echo "$(YELLOW)Cleaning up Docker environment...$(NC)"
@@ -85,18 +56,29 @@ setup: build up install ## Complete setup for new developers
 	@echo "🎉 Setup completed successfully!"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  make example     - Run example calculation"
-	@echo "  make test        - Run tests"
-	@echo "  make shell       - Access development container"
-	@echo "  make help        - Show all available commands"
+	@echo "  make generate_test_data - Generate example for calculation"
+	@echo "  make process_test_data  - Run example calculation"
+	@echo "  make test               - Run tests"
+	@echo "  make shell              - Access development container"
+	@echo "  make help               - Show all available commands"
 	@echo "$(NC)"
 
-generateTestData:
+test-unit: ## Run only unit tests
+	@echo "$(YELLOW)Running unit tests...$(NC)"
+	docker compose exec cake-dev ./vendor/bin/phpunit tests/Unit
+	@echo "$(GREEN)Unit tests completed!$(NC)"
+
+test-coverage: ## Run tests with coverage report
+	@echo "$(YELLOW)Running tests with coverage...$(NC)"
+	docker compose exec cake-dev ./vendor/bin/phpunit --coverage-html coverage
+	@echo "$(GREEN)Coverage report generated in ./coverage/$(NC)"
+
+generate_test_data:
 	@echo "$(YELLOW)Start generating test data file...$(NC)"
-	docker compose exec -T cake-dev php bin/generate-test-data examples/example.txt --count=777
+	docker compose exec -T cake-dev php bin/generate-test-data examples/example.txt --count=900
 	@echo "$(GREEN)Data file generated!$(NC)"
 
-processTestData:
+process_test_data:
 	@echo "$(YELLOW)Start processing file...$(NC)"
 	docker compose exec -T cake-dev php bin/cake-calculator examples/example.txt output/example-output.csv
 	@echo "$(GREEN)Success!$(NC)"
