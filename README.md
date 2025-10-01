@@ -55,3 +55,9 @@ Use **test-coverage** from **Makefile** to run tests with a coverage report.
 ```
 ./vendor/bin/phpunit --coverage-html coverage
 ```
+
+### Note:
+ You can safely set the number of workers for generation to, for example, 1000000. 
+ Such a case will use approximately 75 megabytes of RAM during processing. 
+ 3000000 approximately 200 megabytes.
+ (parameter *--count=1000000* in command) 
