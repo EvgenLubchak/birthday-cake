@@ -12,7 +12,6 @@ use App\Model\Employee;
  */
 final class EmployeeParser implements EmployeeParserInterface
 {
-    private const MAX_LINE_LENGTH = 1024;
     private const DEFAULT_BATCH_SIZE = 1000;
 
 
@@ -40,7 +39,7 @@ final class EmployeeParser implements EmployeeParserInterface
         $lineNumber = 0;
 
         try {
-            while (($line = fgets($handle, self::MAX_LINE_LENGTH)) !== false) {
+            while (($line = fgets($handle)) !== false) {
                 $lineNumber++;
                 $line = trim($line);
 
