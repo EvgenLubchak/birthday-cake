@@ -33,7 +33,8 @@ docker compose exec cake-dev composer install
 
 ## Usage
 
-Use **generate_test_data_plain** from **Makefile** to generate an example of employees text file inside PhpStorm IDE. 
+Use **generate_test_data_plain** from **Makefile** to generate an example of employees text file.
+Recommended for IDE consoles like PhpStorm IDE.
 - **generate_test_data_plain** runs inside container:
 ```
 php bin/generate-test-data examples/example.txt --count=700
@@ -42,15 +43,15 @@ php bin/generate-test-data examples/example.txt --count=700
 Use **process_test_data_plain** to process an example file.
 - **process_test_data_plain** runs inside the container:
 ```
-php bin/cake-calculator --no-ansi examples/example.txt output/example-output.csv
+php bin/cake-calculator examples/example.txt output/example-output.csv
 ```
 
-Use **test-unit** for testing.
+Use **test-unit** from **Makefile** for testing.
 ```
 ./vendor/bin/phpunit tests/Unit
 ```
 
-Use **test-coverage** to run tests with a coverage report.
+Use **test-coverage** from **Makefile** to run tests with a coverage report.
 ```
 ./vendor/bin/phpunit --coverage-html coverage
 ```
