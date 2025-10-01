@@ -27,67 +27,74 @@ final class BatchProcessor
     public function processInBatches(string $inputFile, int $year, SymfonyStyle $io): ProcessingResult
     {
         $startTime = microtime(true);
-        $tempFile = $this->tempFileManager->create('cake_days_');
         $progressBar = $this->createProgressBar($io);
 
         $processedCount = 0;
         $totalCount = 0;
+        $tempFile = null;
 
-        // Process in batches with progress updates
-        foreach ($this->employeeParser->parseInBatches($inputFile, 100) as $batch) {
-            // Calculate cake days for this batch only
-            $batchCakeDays = $this->cakeDayCalculator->calculateCakeDays($batch, $year);
+        try {
+            // Create temp file inside try to ensure cleanup in finally
+            $tempFile = $this->tempFileManager->create('cake_days_');
 
-            // Write batch results to temp file immediately
-            $this->tempFileManager->writeBatch($tempFile, $batchCakeDays);
+            // Process in batches with progress updates
+            foreach ($this->employeeParser->parseInBatches($inputFile, 100) as $batch) {
+                // Calculate cake days for this batch only
+                $batchCakeDays = $this->cakeDayCalculator->calculateCakeDays($batch, $year);
 
-            // Update progress
-            $batchSize = count($batch);
-            $processedCount += $batchSize;
-            $totalCount += $batchSize;
+                // Write batch results to temp file immediately
+                $this->tempFileManager->writeBatch($tempFile, $batchCakeDays);
 
-            $progressBar->advance($batchSize);
+                // Update progress
+                $batchSize = count($batch);
+                $processedCount += $batchSize;
+                $totalCount += $batchSize;
 
-            // Show progress info
-            if ($processedCount % 1000 === 0) {
-                $progressBar->setMessage(sprintf(' [%s processed]', number_format($processedCount)));
+                $progressBar->advance($batchSize);
+
+                // Show progress info
+                if ($processedCount % 1000 === 0) {
+                    $progressBar->setMessage(sprintf(' [%s processed]', number_format($processedCount)));
+                }
+
+                // Aggressive cleanup
+                unset($batch, $batchCakeDays);
+
+                // Garbage collection
+                if ($processedCount % 500 === 0) {
+                    gc_collect_cycles();
+                }
             }
 
-            // Aggressive cleanup
-            unset($batch, $batchCakeDays);
+            $progressBar->finish();
+            $io->newLine(2);
+            $io->success(sprintf('Processed %s employees', number_format($totalCount)));
 
-            // Garbage collection
-            if ($processedCount % 500 === 0) {
-                gc_collect_cycles();
+            // Consolidate results
+            $io->text('Consolidating cake days...');
+            $finalResults = $this->tempFileManager->consolidateResults($tempFile);
+
+            // Compute totals
+            $totalSmallCakes = array_sum(array_map(static fn($cd) => $cd->smallCakes, $finalResults));
+            $totalLargeCakes = array_sum(array_map(static fn($cd) => $cd->largeCakes, $finalResults));
+
+            $processingTimeSeconds = microtime(true) - $startTime;
+            $memoryUsageBytes = memory_get_peak_usage(true);
+
+            return new ProcessingResult(
+                cakeDays: $finalResults,
+                totalEmployeesProcessed: $totalCount,
+                processingTimeSeconds: $processingTimeSeconds,
+                memoryUsageBytes: $memoryUsageBytes,
+                totalSmallCakes: $totalSmallCakes,
+                totalLargeCakes: $totalLargeCakes
+            );
+        } finally {
+            // Ensure temp file is always cleaned up even if exceptions occur
+            if ($tempFile !== null) {
+                $this->tempFileManager->cleanup($tempFile);
             }
         }
-
-        $progressBar->finish();
-        $io->newLine(2);
-        $io->success(sprintf('Processed %s employees', number_format($totalCount)));
-
-        // Consolidate results
-        $io->text('Consolidating cake days...');
-        $finalResults = $this->tempFileManager->consolidateResults($tempFile);
-
-        // Clean up temp file
-        $this->tempFileManager->cleanup($tempFile);
-
-        // Compute totals
-        $totalSmallCakes = array_sum(array_map(static fn($cd) => $cd->smallCakes, $finalResults));
-        $totalLargeCakes = array_sum(array_map(static fn($cd) => $cd->largeCakes, $finalResults));
-
-        $processingTimeSeconds = microtime(true) - $startTime;
-        $memoryUsageBytes = memory_get_peak_usage(true);
-
-        return new ProcessingResult(
-            cakeDays: $finalResults,
-            totalEmployeesProcessed: $totalCount,
-            processingTimeSeconds: $processingTimeSeconds,
-            memoryUsageBytes: $memoryUsageBytes,
-            totalSmallCakes: $totalSmallCakes,
-            totalLargeCakes: $totalLargeCakes
-        );
     }
 
     /**
