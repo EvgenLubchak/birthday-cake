@@ -86,9 +86,7 @@ final class CakeDayCalculator implements CakeDayCalculatorInterface
         unset($dateGroups);
         gc_collect_cycles();
 
-        // Step 6: Sort only once at the end
-        usort($cakeDays, static fn(SimpleCakeDay $a, SimpleCakeDay $b) => $a->timestamp <=> $b->timestamp);
-
+        // Sorted and stabilized inside processGroupsOptimized
         return $cakeDays;
     }
 
@@ -114,9 +112,8 @@ final class CakeDayCalculator implements CakeDayCalculatorInterface
             );
         }
 
-        // Apply rules in-place to avoid memory copies
-        $cakeDays = $this->applyConsecutiveRulesOptimized($cakeDays);
-        $cakeDays = $this->applyCakeFreeDayRulesOptimized($cakeDays);
+        // Apply all rules with minimal sorting and stabilize the result
+        $cakeDays = $this->applyRulesUntilStable($cakeDays);
 
         return $cakeDays;
     }
@@ -168,18 +165,15 @@ final class CakeDayCalculator implements CakeDayCalculatorInterface
             $employeeCount = count($employeeNames);
 
             $consolidated[] = new SimpleCakeDay(
-                $timestamp,
+                (int)$timestamp,
                 $employeeCount >= 2 ? 0 : 1,
                 $employeeCount >= 2 ? 1 : 0,
                 $employeeNames
             );
         }
 
-        // Apply final rules
-        $consolidated = $this->applyConsecutiveRulesOptimized($consolidated);
-        $consolidated = $this->applyCakeFreeDayRulesOptimized($consolidated);
-
-        usort($consolidated, static fn(SimpleCakeDay $a, SimpleCakeDay $b) => $a->timestamp <=> $b->timestamp);
+        // Apply all rules once and stabilize/sort internally
+        $consolidated = $this->applyRulesUntilStable($consolidated);
 
         return $consolidated;
     }
@@ -193,9 +187,7 @@ final class CakeDayCalculator implements CakeDayCalculatorInterface
             return $cakeDays;
         }
 
-        // Sort by timestamp first
-        usort($cakeDays, static fn(SimpleCakeDay $a, SimpleCakeDay $b) => $a->timestamp <=> $b->timestamp);
-
+        // Assumes input is already sorted by timestamp
         $adjusted = [];
         $i = 0;
 
@@ -239,9 +231,7 @@ final class CakeDayCalculator implements CakeDayCalculatorInterface
             return $cakeDays;
         }
 
-        // Sort by timestamp
-        usort($cakeDays, static fn(SimpleCakeDay $a, SimpleCakeDay $b) => $a->timestamp <=> $b->timestamp);
-
+        // Assumes input is already sorted by timestamp
         $adjusted = [];
         $lastCakeTimestamp = null;
 
@@ -289,5 +279,56 @@ final class CakeDayCalculator implements CakeDayCalculatorInterface
         $date2 = Carbon::createFromTimestamp($timestamp2);
 
         return $this->holidayService->getNextWorkingDay($date1)->equalTo($date2);
+    }
+
+    /**
+     * Apply rules with minimal sorting, repeating until stable or max iterations
+     * Ensures the result is sorted by timestamp when returned.
+     *
+     * @param SimpleCakeDay[] $cakeDays
+     * @return SimpleCakeDay[]
+     */
+    private function applyRulesUntilStable(array $cakeDays): array
+    {
+        // Always start from sorted order
+        usort($cakeDays, static fn(SimpleCakeDay $a, SimpleCakeDay $b) => $a->timestamp <=> $b->timestamp);
+
+        $maxIterations = 5;
+        for ($iter = 0; $iter < $maxIterations; $iter++) {
+            $before = $this->fingerprint($cakeDays);
+
+            // Apply rules that expect sorted input
+            $cakeDays = $this->applyConsecutiveRulesOptimized($cakeDays);
+            $cakeDays = $this->applyCakeFreeDayRulesOptimized($cakeDays);
+
+            // Postponements may change ordering, so sort again
+            usort($cakeDays, static fn(SimpleCakeDay $a, SimpleCakeDay $b) => $a->timestamp <=> $b->timestamp);
+
+            $after = $this->fingerprint($cakeDays);
+            if ($after === $before) {
+                break; // Stable
+            }
+        }
+
+        return $cakeDays;
+    }
+
+    /**
+     * Create a lightweight fingerprint of cakeDays array
+     *
+     * @param SimpleCakeDay[] $cakeDays
+     */
+    private function fingerprint(array $cakeDays): string
+    {
+        $repr = array_map(static function (SimpleCakeDay $cd) {
+            return [
+                't' => $cd->timestamp,
+                's' => $cd->smallCakes,
+                'l' => $cd->largeCakes,
+                'n' => $cd->employeeNames,
+            ];
+        }, $cakeDays);
+
+        return md5(json_encode($repr, JSON_UNESCAPED_UNICODE));
     }
 }
